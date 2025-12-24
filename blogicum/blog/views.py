@@ -195,11 +195,18 @@ def post_delete(request, post_id):
     if post.author != request.user:
         return redirect('blog:post_detail', post_id=post_id)
 
+    form = PostForm(request.POST or None, request.FILES or None, instance=post)
+
     if request.POST:
         post.delete()
         return redirect('blog:profile', username=request.user.username)
 
-    return render(request, 'blog/create.html', {'post': post})
+    return render(
+        request,
+        'blog/create.html',
+        {'form': form, 'post': post}
+    )
+
 
 
 @login_required
