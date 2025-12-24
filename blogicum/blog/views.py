@@ -12,33 +12,28 @@ from .forms import PostForm, CommentForm, ProfileForm
 from django.db.models import Count
 
 
-def annotate_posts(queryset):
-    return queryset.annotate(
-        comment_count=Count('comments')
-    ).order_by('-pub_date')
-
-
 def get_page(request, queryset, per_page=10):
     paginator = Paginator(queryset, per_page)
     page_number = request.GET.get('page')
     return paginator.get_page(page_number)
 
 
-def filter_published(queryset):
-    return queryset.filter(
-        is_published=True,
-        category__is_published=True,
-        pub_date__lte=timezone.now()
-    )
+def prepare_posts(queryset, filter_published=True):
+    if filter_published:
+        queryset = queryset.filter(
+            is_published=True,
+            category__is_published=True,
+            pub_date__lte=timezone.now()
+        )
+
+    return queryset.annotate(
+        comment_count=Count('comments')
+    ).order_by('-pub_date')
 
 
 def index(request):
-    posts = Post.objects.select_related(
-        'location', 'category', 'author'
-    )
-
-    posts = filter_published(posts)
-    posts = annotate_posts(posts)
+    posts = Post.objects.select_related('location', 'category', 'author')
+    posts = prepare_posts(posts, filter_published=True)
     page_obj = get_page(request, posts)
 
     context = {
@@ -82,8 +77,7 @@ def category_posts(request, category_slug):
         'location', 'category', 'author'
     )
 
-    posts = filter_published(posts)
-    posts = annotate_posts(posts)
+    posts = prepare_posts(posts, filter_published=True)
     page_obj = get_page(request, posts)
 
     context = {
@@ -97,13 +91,16 @@ def profile(request, username):
     profile = get_object_or_404(User, username=username)
 
     if request.user == profile:
-        posts = Post.objects.filter(author=profile)
+        posts = prepare_posts(
+            Post.objects.filter(author=profile),
+            filter_published=False
+        )
     else:
-        posts = filter_published(
-            Post.objects.filter(author=profile)
+        posts = prepare_posts(
+            Post.objects.filter(author=profile),
+            filter_published=True
         )
 
-    posts = annotate_posts(posts)
     page_obj = get_page(request, posts)
 
     context = {
