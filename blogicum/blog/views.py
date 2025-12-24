@@ -24,15 +24,20 @@ def get_page(request, queryset, per_page=10):
     return paginator.get_page(page_number)
 
 
+def filter_published(queryset):
+    return queryset.filter(
+        is_published=True,
+        category__is_published=True,
+        pub_date__lte=timezone.now()
+    )
+
+
 def index(request):
     posts = Post.objects.select_related(
         'location', 'category', 'author'
-    ).filter(
-        pub_date__lte=timezone.now(),
-        is_published=True,
-        category__is_published=True
     )
 
+    posts = filter_published(posts)
     posts = annotate_posts(posts)
     page_obj = get_page(request, posts)
 
@@ -75,11 +80,9 @@ def category_posts(request, category_slug):
     )
     posts = category.posts.select_related(
         'location', 'category', 'author'
-    ).filter(
-        pub_date__lte=timezone.now(),
-        is_published=True
     )
 
+    posts = filter_published(posts)
     posts = annotate_posts(posts)
     page_obj = get_page(request, posts)
 
@@ -96,11 +99,8 @@ def profile(request, username):
     if request.user == profile:
         posts = Post.objects.filter(author=profile)
     else:
-        posts = Post.objects.filter(
-            author=profile,
-            is_published=True,
-            category__is_published=True,
-            pub_date__lte=timezone.now()
+        posts = filter_published(
+            Post.objects.filter(author=profile)
         )
 
     posts = annotate_posts(posts)
